@@ -1,0 +1,5 @@
+/.vs
+/Xmtp/bin/Debug
+/Xmtp/obj
+/XmtpClientExample/obj
+/XmtpServerExample/obj

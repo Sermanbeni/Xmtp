@@ -1,0 +1,12 @@
+﻿--- WRITE FROM HERE
+[4 bytes] message length 
+--- READ FROM HERE
+[4 bytes] endpoint length (N)
+[N bytes] endpoint
+[4 bytes] request ID size (M)
+[M bytes] request ID
+[4 bytes] object count (O)
+--- (O times)
+[4 bytes] object size (P)
+[P bytes] object
+---
