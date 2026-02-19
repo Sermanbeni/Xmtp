@@ -1,4 +1,4 @@
-# Xmtp
+# Xmtp (Extensible Message Transfer Protocol) - Protocol and Framework
 This is an RPC Server-Client Framework and Networking Protocol for native C# using System.Net.Sockets.TcpClient
 The project is work in progress. It is currently being tested.
 

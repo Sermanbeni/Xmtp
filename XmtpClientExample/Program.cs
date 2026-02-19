@@ -15,7 +15,7 @@ public static class Program
             clientType: "client", // Client name used to log controllers
             logger: new ConsoleLogger(), // Logger object to log errors
             clientAuthenticator: new ClientAuthenticator<string>(), // A handler for the initial handshake to update TCP to XMTP on client side
-            services: new ServiceLibrary, // A library that contains all services used by the controllers
+            services: serviceLibrary, // A library that contains all services used by the controllers
             useTls: false, // A switch to try connecting to server with TLS
             certificateValidationCallback: null, // A certificate validator for validating server certificate (if null, uses default)
             certificate: null // A shown up certificate used for mTLS
