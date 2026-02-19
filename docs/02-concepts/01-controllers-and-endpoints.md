@@ -6,6 +6,7 @@ Controllers are container classes that contain endpoints.
 Controllers and endpoints are discovered and precompiled automatically during server build time.
 
 # Controllers:
+
 To define a controller (example in 03-guides/create-controller):
     1. The class must extend one of the Controller Base classes:
         - ServerControllerBase (if server controller)
@@ -19,6 +20,7 @@ To define a controller (example in 03-guides/create-controller):
     3. The class must be public
 
 # Endpoints:
+
 To define an endpoint (example in 03-guides/create-controller):
     1. The method must be a public method in a Controller.
 
