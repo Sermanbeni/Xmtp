@@ -86,12 +86,12 @@ If the message is dropped for a request, no response will be sent. (It will be p
     Sends a message to the server to the given endpoint with the parameters.
     Awaits for a TResponse type response from the server.
 
-    XmtpMessageResponse<T> has 2 fields:
-        Result Code:
-            1. Successful   - response arrived, parsing into T type successful
-            2. Parse Failed - response arrived, but parsing into T type failed
-            3. Timeout      - no response arrived
-            4. Blocked      - response arrived with null value as content (blocked by the remote)
+XmtpMessageResponse<T> has 2 fields:
+    Result Code:
+        1. Successful: response arrived, parsing into T type successful
+        2. Parse Failed: response arrived, but parsing into T type failed
+        3. Timeout: no response arrived
+        4. Blocked: response arrived with null value as content (blocked by the remote)
 
 
 

@@ -23,7 +23,7 @@ Successful connection only happens when:
 
 # Tools
 CertificateFactory class is provided to:
-1. Issue custom self-signed certificates with
+1. Issue custom self-signed certificates
 2. Load generated certificates
 3. Create validation callbacks with thumbprint and common name
 4. Create accepting validation callback (accepts any certificate for TLS-only without authentication)
