@@ -3,12 +3,12 @@
 To secure the protocol X509Certificate2 certificates can be used to create TLS and mTLS.
 Can also be used with self-signed certificates with custom validator.
 
-Server configuration:
+- Server configuration:
     - certificate: if provided, uses certificate and makes TLS
     - certificateValidationCallback: if provided and client authentication is true (uses mTLS) the custom validator will be used instead of the default. (for self-signed certificates)
     - useClientAuthentication: use mTLS or not
 
-Client configuration:
+- Client configuration:
     - useTls: attempt to use TLS when connecting
     - certificateValidationCallback: if provided, it will be used to validate the server certificate instead of the default validator. (for self-signed certificates)
     - certificate: the certificate the client shows up (if the server requires mTLS)
