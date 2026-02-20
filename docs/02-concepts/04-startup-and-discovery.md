@@ -2,17 +2,19 @@
 
 A server is created by calling the constructor:
 
+```CSharp
 XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
     serverType: "serverType", // name of the controllers that the server uses
     port: 5000, // listener port
     logger: logger, // a logger implementing ILogger interface
     connectionInitializer: initializer, // a connection initializer implementing IConnectionInitializer interface
-    authenticator: authenticator, // an authenticator implementing IAuthenticator<TRemoteID> interface
+    authenticator: authenticator, // an authenticator implementing `IAuthenticator<TRemoteID>` interface
     services: serviceLibrary, // a service library that contains all services required by the endpoints
     certificate: certificate, // the shown up certificate for TLS 
     certificateValidationCallback: validator, // the validator used to validate remote certificate
     useClientAuthentication: true // whether mTLS is required
 );
+```
 
 # Discovery process:
 1. On creation, the server discovers the controllers with the server type:
@@ -30,7 +32,7 @@ XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
 6. Read endpoint metadata:
     - Request endpoint if has return value:
         - Sync: int, string, ..., object (any custom type)
-        - Async: Task<object> (only Task<object>, no other Task<T>)
+        - Async: `Task<object> (only Task<object>, no other Task<T>)`
     - Message endpoint if has no return value:
         - Sync: void
         - Async: Task
@@ -41,6 +43,7 @@ XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
 
 Server controller example:
 
+```CSharp
 // assign the server names, the controller belongs to
 // if no server name is listed the controller is universal and belongs to all servers
 [ServerController("serverType")] 
@@ -63,7 +66,7 @@ public class CustomServerController<T> : ServerControllerBase<T>
         customService.CustomMethod(param1, param2);
     }
 }
-
+```
 # Service management
 
 Services should be created manually before creating the Server or Client instance.
@@ -72,6 +75,7 @@ The services logged into the Servi
 
 Example:
 
+```CSharp
 void LogService()
 {
     ICustomService customService = new CustomService();
@@ -83,3 +87,4 @@ void LogService()
         services: services
     );
 }
+```

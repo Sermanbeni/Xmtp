@@ -78,42 +78,45 @@ If the message is dropped for a request, no response will be sent. (It will be p
 
 # Methods for sending messages (client side):
 
-1. void SendMessage (string endpoint, params object[] objects);
-    Sends a message to the server to the given endpoint.
-    The objects are the method parameters.
+1. `void SendMessage (string endpoint, params object[] objects)`
+    - Sends a message to the server to the given endpoint.
+    - The objects are the method parameters.
 
-2. Task<XmtpMessageResponse<TResponse>> SendRequest<TResponse>(string endpoint, params object[] objects);
-    Sends a message to the server to the given endpoint with the parameters.
-    Awaits for a TResponse type response from the server.
+2. `Task<XmtpMessageResponse<TResponse>> SendRequest<TResponse>(string endpoint, params object[] objects)`
+    - Sends a message to the server to the given endpoint with the parameters.
+    - Awaits for a TResponse type response from the server.
 
-XmtpMessageResponse<T> has 2 fields:
-    Result Code:
-        1. Successful: response arrived, parsing into T type successful
-        2. Parse Failed: response arrived, but parsing into T type failed
-        3. Timeout: no response arrived
-        4. Blocked: response arrived with null value as content (blocked by the remote)
+`XmtpMessageResponse<T>` has 2 fields:
+- Result Code:
+    1. Successful: response arrived, parsing into T type successful
+    2. Parse Failed: response arrived, but parsing into T type failed
+    3. Timeout: no response arrived
+    4. Blocked: response arrived with null value as content (blocked by the remote)
+- Value:
+    1. Contains a T type value if Result Code is Successful.
+    2. Otherwise value is null.
 
 
 
 # Methods for sending messages (server side):
 
-1. void SendMessage(T remoteID, string endpoint, params object[] objects);
-    Sends a message to a selected remote to a selected endpoint with the parameters.
+1. `void SendMessage(T remoteID, string endpoint, params object[] objects)`
+    - Sends a message to a selected remote to a selected endpoint with the parameters.
 
-2. void SendMulticast(IEnumerable<T> remoteIDs, string endpoint, params object[] objects);
-    Sends a message to multiple selected remotes.
+2. `void SendMulticast(IEnumerable<T> remoteIDs, string endpoint, params object[] objects)`
+    - Sends a message to multiple selected remotes.
 
-3. void SendBroadcast(string endpoint, params object[] objects);
-    Sends a message to all connected remotes.
+3. `void SendBroadcast(string endpoint, params object[] objects)`
+    - Sends a message to all connected remotes.
 
-4. Task<XmtpMessageResponse<TResponse>> SendRequest<TResponse>(T remoteID, string endpoint, params object[] objects);
-    Sends a request to one selected remote.
-    Awaits for a TResponse type response from the remote.
+4. `Task<XmtpMessageResponse<TResponse>> SendRequest<TResponse>(T remoteID, string endpoint, params object[] objects)`
+    - Sends a request to one selected remote.
+    - Awaits for a TResponse type response from the remote.
 
-5. Task<KeyValuePair<T, XmtpMessageResponse<TResponse>>> SendMultiRequest<TResponse>(IEnumerable<T> remoteIDs, string endpoint, params object[] objects);
-    Sends a request to multiple selected remotes.
-    Awaits for a TResponse type response from all selected remotes.
+5. `Task<KeyValuePair<T, XmtpMessageResponse<TResponse>>> SendMultiRequest<TResponse>(IEnumerable<T> remoteIDs, string endpoint, params object[] objects`
+    - Sends a request to multiple selected remotes.
+    - Awaits for a TResponse type response from all selected remotes.
 
-6. Task<KeyValuePair<T, XmtpMessageResponse<TResponse>>> SendBroadcastRequest<TResponse>(string endpoint, params object[] objects);
-    Sends a request to all connected remotes.
-    Awaits for a TResponse type response from all connected remotes.
+6. `Task<KeyValuePair<T, XmtpMessageResponse<TResponse>>> SendBroadcastRequest<TResponse>(string endpoint, params object[] objects)`
+    - Sends a request to all connected remotes.
+    - Awaits for a TResponse type response from all connected remotes.

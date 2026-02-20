@@ -17,19 +17,21 @@ Controllers and endpoints are discovered and precompiled automatically during se
     3. The class must be public
 
 # Endpoints:
-1. To define an endpoint (example in 03-guides/create-controller):
+- To define an endpoint (example in 03-guides/create-controller):
     - The method must be a public method in a Controller.
     - The method must have 1 attribute:
         - Endpoint (defines the endpoint path ending to the endpoint)
         - Final endpoint path = RoutePath/EndpointPath
-2. Endpoint Types:
-    - Request
-        - Has a return value. The endpoint is invoked and the return value gets returned as a response.
-        - To define a Request endpoint, the method must have a return value:
-            - For synchronous endpoints: returns any custom type is accepted (int, string, custom serializable classes, object)
-            - For asynchronous endpoints: returns Task<object> (strictly Task<object>, no Task<T> allowed)
-    - Message
-        - Has no return value. The endpoint is invoked and nothing is returned.
-        - To define a Message endpoint, the method must have no return value:
-            - For synchronous endpoints: returns void
-            - For asynchronous endpoints: returns Task
+
+## Endpoint Types:
+1. Request:
+    - Has a return value. The endpoint is invoked and the return value gets returned as a response.
+    - To define a Request endpoint, the method must have a return value:
+        - For synchronous endpoints: returns any custom type is accepted (int, string, custom serializable classes, object)
+        - For asynchronous endpoints: returns `Task<object>` (strictly `Task<object>`, no `Task<T>` allowed)
+
+2. Message:
+    - Has no return value. The endpoint is invoked and nothing is returned.
+    - To define a Message endpoint, the method must have no return value:
+        - For synchronous endpoints: returns void
+        - For asynchronous endpoints: returns Task

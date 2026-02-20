@@ -2,23 +2,23 @@
 
 The framework uses a custom message frame:
 
-[Message Size (4 byte)]
-[Endpoint Size (4 byte)]
-[Endpoint]
-[RequestID Size (4 byte)]
-[RequestID]
-[Object Count (4 byte)]
---- For each object
-[Object Size (4 byte)]
-[Object]
----
+`[Message Size (4 byte)]`<br />
+`[Endpoint Size (4 byte)]`<br />
+`[Endpoint]`<br />
+`[RequestID Size (4 byte)]`<br />
+`[RequestID]`<br />
+`[Object Count (4 byte)]`<br />
+`--- For each object`<br />
+`[Object Size (4 byte)]`<br />
+`[Object]`<br />
+`---`<br />
 
-Each message contains:
+- Each message contains:
     - An Endpoint,
     - An optional Request ID
     - N objects
 
-Message types:
+- Message types:
     - Message: The message is delivered to an endpoint without a return value, invoked and returns no response
     - Request: The message is delivered to an endpoint with a return value, invoked and returns the return value of the method as a response.
 
