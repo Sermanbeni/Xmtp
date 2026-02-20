@@ -2,7 +2,7 @@
 
 A server is created by calling the constructor:
 
-```CSharp
+```c#
 XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
     serverType: "serverType", // name of the controllers that the server uses
     port: 5000, // listener port
@@ -43,7 +43,7 @@ XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
 
 Server controller example:
 
-```CSharp
+```c#
 // assign the server names, the controller belongs to
 // if no server name is listed the controller is universal and belongs to all servers
 [ServerController("serverType")] 
@@ -71,11 +71,12 @@ public class CustomServerController<T> : ServerControllerBase<T>
 
 Services should be created manually before creating the Server or Client instance.
 The created services should be added to a ServiceLibrary object that is passed to the server constructor.
-The services logged into the Servi
+The services logged into the Service Library will be used to build the server controllers.<br />
+All services required by the controllers must be assigned, otherwise the controller will not be able to resolve dependency and will fail.
 
 Example:
 
-```CSharp
+```c#
 void LogService()
 {
     ICustomService customService = new CustomService();
@@ -83,7 +84,7 @@ void LogService()
     ServiceLibrary services = new ServiceLibrary();
     services.AddService<ICustomService>(customService);
 
-    XmtpServer<string> = new XmtpServer(
+    XmtpServer<string> = new XmtpServer<string>(
         services: services
     );
 }
