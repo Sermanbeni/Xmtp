@@ -40,7 +40,7 @@ namespace Xmtp
             bool useTls = false, RemoteCertificateValidationCallback certificateValidationCallback = null, X509Certificate2 certificate = null)
         {
             List<ControllerInfo> controllerInfos = 
-                ControllerRegistry.RegisterControllers<ClientControllerAttribute>(clientType, typeof(ClientControllerBase<>));
+                ControllerRegistry.RegisterControllers<ClientControllerAttribute>(clientType, typeof(ClientControllerBase<>), typeof(T));
             endpoints = ControllerRegistry.CompileEndpoints<T>(controllerInfos).AsReadOnly();
 
             this.registeredServices = services.RegisteredServices;

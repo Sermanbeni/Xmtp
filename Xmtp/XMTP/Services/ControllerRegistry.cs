@@ -13,7 +13,7 @@ namespace Xmtp
             return compiledEndpoints;
         }
 
-        public static List<ControllerInfo> RegisterControllers<TAttribute>(string serverType, Type BaseType)
+        public static List<ControllerInfo> RegisterControllers<TAttribute>(string serverType, Type BaseType, Type TemplateType)
             where TAttribute : ControllerAttribute
         {
             Assembly assembly = Assembly.GetEntryAssembly()!;
@@ -26,8 +26,10 @@ namespace Xmtp
                 {
                     bool isController =
                         type.BaseType != null &&
-                        type.BaseType.IsGenericType &&
-                        type.BaseType.GetGenericTypeDefinition() == BaseType;
+                        (
+                            (type.BaseType.IsGenericType && type.BaseType.GetGenericTypeDefinition() == BaseType) ||
+                            (type.BaseType == BaseType.MakeGenericType(TemplateType))
+                        );
                     if (!isController) continue;
 
                     ControllerAttribute? controllerAttribute = type.GetCustomAttribute<TAttribute>();

@@ -48,7 +48,7 @@ namespace Xmtp
             this.useClientAuthentication = useClientAuthentication;
 
             List<ControllerInfo> controllerInfos = 
-                ControllerRegistry.RegisterControllers<ServerControllerAttribute>(serverType, typeof(ServerControllerBase<>));
+                ControllerRegistry.RegisterControllers<ServerControllerAttribute>(serverType, typeof(ServerControllerBase<>), typeof(T));
             endpoints = ControllerRegistry.CompileEndpoints<T>(controllerInfos).AsReadOnly();
             var controllers = controllerInfos.Select(c => c.Type).ToList();
 

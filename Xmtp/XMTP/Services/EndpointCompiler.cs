@@ -74,7 +74,17 @@ namespace Xmtp
             var controllerParam = Expression.Parameter(typeof(object), "controller");
             var parametersParam = Expression.Parameter(typeof(object[]), "parameters");
 
-            var castController = Expression.Convert(controllerParam, method.DeclaringType!.MakeGenericType(typeof(TController)));
+            UnaryExpression castController;
+
+            Type declaringType = method.DeclaringType!;
+            if (declaringType.IsGenericTypeDefinition)
+            {
+                castController = Expression.Convert(controllerParam, declaringType.MakeGenericType(typeof(TController)));
+            }
+            else
+            {
+                castController = Expression.Convert(controllerParam, declaringType);
+            }
 
             var methodParams = method.GetParameters();
             var paramExpressions = new Expression[methodParams.Length];
@@ -85,8 +95,18 @@ namespace Xmtp
                 paramExpressions[i] = Expression.Convert(arrayAccess, methodParams[i].ParameterType);
             }
 
-            var constructedMethod = method.DeclaringType.MakeGenericType(typeof(TController))
+            MethodInfo constructedMethod;
+            if (declaringType.IsGenericTypeDefinition)
+            {
+                constructedMethod = declaringType.MakeGenericType(typeof(TController))
+                    .GetMethod(method.Name, method.GetParameters().Select(p => p.ParameterType).ToArray())!;
+            }
+            else
+            {
+                constructedMethod = declaringType
                 .GetMethod(method.Name, method.GetParameters().Select(p => p.ParameterType).ToArray())!;
+            }
+
             var methodCall = Expression.Call(castController, constructedMethod, paramExpressions);
 
             var body = transformResult(methodCall);
