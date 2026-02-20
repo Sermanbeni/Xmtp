@@ -14,20 +14,21 @@ The framework uses a custom message frame:
 `---`<br />
 
 - Each message contains:
-    - An Endpoint,
-    - An optional Request ID
+    - An Endpoint
+    - An Request ID (optional)
     - N objects
 
 - Message types:
-    - Message: The message is delivered to an endpoint without a return value, invoked and returns no response
-    - Request: The message is delivered to an endpoint with a return value, invoked and returns the return value of the method as a response.
+    - Message: The message is delivered to an endpoint without a return value. Invoked and returns no response.
+    - Request: The message is delivered to an endpoint with a return value. Invoked and returns the return value of the method as a response.
+    - Response: The message is response to a request. The endpoint is "response", and contains the Request ID of the request. Responses are sent automatically after invoking request endpoints.
 
 1. The endpoint determines the method to be called.
 
-2. The Request ID is an optional field used only for requests. 
+2. The Request ID is an optional field used only for requests and responses.
     If the endpoint is a response endpoint, and the message contains a request ID, the return value will be returned as a response with the request ID.
     If the message is not a request, the request ID is empty.
 
-3. The objects are the parameters for the method, to be parsed for invocation.
+3. The objects are the parameters for the method. They are parsed for invocation.
     The sent object count and types must match the endpoint method parameter count and types to be called, otherwise the message is dropped.
 

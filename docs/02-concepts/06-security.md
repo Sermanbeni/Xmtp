@@ -1,7 +1,7 @@
 # Security
 
-To secure the protocol X509Certificate2 certificates can be used to create TLS and mTLS.
-Can also be used with self-signed certificates with custom validator.
+To secure the protocol `X509Certificate2` certificates can be used to create TLS and mTLS.
+Self-signed certificates can also be used with custom validator.
 
 - Server configuration:
     - certificate: if provided, uses certificate and makes TLS
@@ -21,7 +21,7 @@ Successful connection only happens when:
 3. If mTLS is used: both sides must validate the remote certificate
     - If either certificate is not validated the connection fails.
 
-# Tools
+## Tools
 CertificateFactory class is provided to:
 1. Issue custom self-signed certificates
 2. Load generated certificates

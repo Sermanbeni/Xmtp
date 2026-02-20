@@ -16,7 +16,7 @@ XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
 );
 ```
 
-# Discovery process:
+## Discovery process:
 1. On creation, the server discovers the controllers with the server type:
     - public, non-abstract class
     - inherited from ServerControllerBase or ClientControllerBase
@@ -32,14 +32,14 @@ XmtpServer<TRemoteID> = new XmtpServer<TRemoteID>(
 6. Read endpoint metadata:
     - Request endpoint if has return value:
         - Sync: int, string, ..., object (any custom type)
-        - Async: `Task<object> (only Task<object>, no other Task<T>)`
+        - Async: `Task<object>` (strictly `Task<object>`, no `Task<T>` allowed)
     - Message endpoint if has no return value:
         - Sync: void
         - Async: Task
 7. Compile reflection into delegates
 8. Store endpoints in routing table
 
-# Controller and Endpoint discovery
+## Controller and Endpoint discovery
 
 Server controller example:
 
@@ -67,7 +67,7 @@ public class CustomServerController<T> : ServerControllerBase<T>
     }
 }
 ```
-# Service management
+## Service management
 
 Services should be created manually before creating the Server or Client instance.
 The created services should be added to a ServiceLibrary object that is passed to the server constructor.
