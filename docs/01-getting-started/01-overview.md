@@ -31,6 +31,5 @@ The protocol uses three independent tasks per connection:
 5. Messages are invoked from the queue in enqueueing order
 
 ## Features:
-1. The framework uses a multiplexed channel. Each message goes through the same TCP connection independently and routed to the according endpoint method.
-2. Request-response messaging (Read in 02-concepts/05-request-handling)
-3. Different, custom features can be built on top of this channel, making it extensible for any custom purpose.
+1. The framework uses persistent TCP connection on one multiplexed channel. Each message goes through the same TCP connection independently and routed to the according endpoint method.
+2. Different, custom features can be built on top of this channel, making it extensible for any custom purpose.
