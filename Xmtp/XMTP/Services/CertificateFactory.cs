@@ -39,10 +39,15 @@ namespace Xmtp
                     expectedThumbprint,
                     StringComparison.OrdinalIgnoreCase);
 
-                bool commonNameValid = cert.Subject.Contains(
-                    $"CN={expectedCommonName}");
+                bool commonNameValid = cert.GetNameInfo(X509NameType.SimpleName, false)
+                    .Equals(expectedCommonName, StringComparison.OrdinalIgnoreCase);
 
-                return thumbprintValid && commonNameValid;
+                if (!thumbprintValid || !commonNameValid)
+                    return false;
+
+                const SslPolicyErrors allowedErrors = SslPolicyErrors.RemoteCertificateChainErrors;
+
+                return (sslPolicyErrors & ~allowedErrors) == SslPolicyErrors.None;
             };
         }
 
