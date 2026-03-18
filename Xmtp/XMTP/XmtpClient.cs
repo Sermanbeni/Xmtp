@@ -254,16 +254,19 @@ namespace Xmtp
                 if (!endpoints.TryGetValue(message.Endpoint, out CompiledEndpoint endpoint))
                 {
                     logger.Log($"Endpoint {message.Endpoint} not found");
+                    InvocationFailed(message);
                     return;
                 }
                 if (message.Objects.Length != endpoint.ParameterTypes.Length)
                 {
                     logger.Log($"Parameter count mismatch at endpoint {message.Endpoint}");
+                    InvocationFailed(message);
                     return;
                 }
                 if ((endpoint.IsRequest && message.RequestID == null))
                 {
                     logger.Log($"Invalid request format at endpoint {message.Endpoint}");
+                    InvocationFailed(message);
                     return;
                 }
                 object controller = controllers[endpoint.ControllerIndex];
@@ -311,6 +314,15 @@ namespace Xmtp
             catch (Exception ex)
             {
                 logger.Log(ex);
+                InvocationFailed(message);
+            }
+        }
+
+        void InvocationFailed(XmtpDeliveredMessage message)
+        {
+            if (message.RequestID != null)
+            {
+                SendResponseError(message.RequestID.Value);
             }
         }
 
@@ -343,14 +355,14 @@ namespace Xmtp
 
             byte[] responseBytes = task.Task.Result;
 
-            if (typeof(TResponse).Equals(typeof(byte[])))
-            {
-                return new XmtpMessageResponse<TResponse>(XmtpResultCode.Success, (TResponse)(object)responseBytes);
-            }
-
             if (responseBytes == null)
             {
                 return new XmtpMessageResponse<TResponse>(XmtpResultCode.Blocked, default);
+            }
+
+            if (typeof(TResponse).Equals(typeof(byte[])))
+            {
+                return new XmtpMessageResponse<TResponse>(XmtpResultCode.Success, (TResponse)(object)responseBytes);
             }
 
             bool conversionFailed = false;
@@ -379,13 +391,27 @@ namespace Xmtp
             SenderQueue.Enqueue(bytes);
         }
 
+        void SendResponseError(Guid requestID)
+        {
+            XmtpMessage message = new XmtpMessage("response", requestID, []);
+            byte[] bytes = message.Serialize();
+            SenderQueue.Enqueue(bytes);
+        }
+
         void HandleResponse(XmtpDeliveredMessage message)
         {
             try
             {
                 if (message.RequestID != null && PendingRequests.TryGetValue(message.RequestID.Value, out var task))
                 {
-                    task.SetResult(message.Objects[0]);
+                    if (message.Objects.Length > 0)
+                    {
+                        task.SetResult(message.Objects[0]);
+                    }
+                    else
+                    {
+                        task.SetResult(null!);
+                    }
                     return;
                 }
             }
