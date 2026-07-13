@@ -1,9 +1,10 @@
-﻿using System.Net.Sockets;
+﻿using System.Net;
+using System.Net.Sockets;
 
 namespace Xmtp
 {
     public interface IAuthenticator<T>
     {
-        bool Authenticate(byte[] token, out T? ID);
+        bool Authenticate(IPAddress iPAddress, byte[] token, out T? ID);
     }
 }

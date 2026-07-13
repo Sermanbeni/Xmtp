@@ -6,7 +6,7 @@ namespace Xmtp
 {
     public class ClientAuthenticator<T> : IClientAuthenticator<T>
     {
-        public async Task<T?> LogInAsync(Stream stream, byte[] token, CancellationToken ct = default)
+        public async Task<T?> LogInAsync(TcpClient client, Stream stream, byte[] token, CancellationToken ct = default)
         {
             byte[] buffer = new byte[4];
             int received = 0;

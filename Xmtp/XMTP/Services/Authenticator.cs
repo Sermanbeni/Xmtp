@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Net;
 
 namespace Xmtp
 {
@@ -41,7 +42,7 @@ namespace Xmtp
             return false;
         }
 
-        public bool Authenticate(byte[] token, out T? ID)
+        public bool Authenticate(IPAddress iPAddress, byte[] token, out T? ID)
         {
             string t = GetToken(token);
             return storedTokens.TryGetValue(t, out ID);

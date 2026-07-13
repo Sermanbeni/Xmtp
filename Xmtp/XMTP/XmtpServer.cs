@@ -11,7 +11,7 @@ using System.Text.Json;
 
 namespace Xmtp
 {
-    public class XmtpServer<T> where T : notnull
+    public class XmtpServer<T> : IXmtpServer where T : notnull
     {
         readonly ConcurrentDictionary<T, ConnectedClient<T>> Clients;
         readonly ReadOnlyDictionary<string, CompiledEndpoint> endpoints;
@@ -26,6 +26,7 @@ namespace Xmtp
         readonly IConnectionInitializer connectionInitializer;
         readonly IAuthenticator<T> authenticator;
         readonly IControllerFactory controllerFactory;
+        readonly IObjectSerializer serializer;
 
         readonly ReadOnlyDictionary<Type, object> registeredServices;
 
@@ -38,7 +39,7 @@ namespace Xmtp
         Action<T> Disconnected = delegate { };
 
         public XmtpServer(string serverType, int port, 
-            ILogger logger, IConnectionInitializer connectionInitializer, IAuthenticator<T> authenticator,
+            ILogger logger, IConnectionInitializer connectionInitializer, IAuthenticator<T> authenticator, IObjectSerializer serializer,
             ServiceLibrary services, X509Certificate2 certificate = null,
             RemoteCertificateValidationCallback certificateValidationCallback = null,
             bool useClientAuthentication = false)
@@ -63,6 +64,7 @@ namespace Xmtp
             this.logger = logger;
             this.connectionInitializer = connectionInitializer;
             this.authenticator = authenticator;
+            this.serializer = serializer;
             this.controllerFactory = new ControllerFactory<T>(controllers, registeredServices);
 
             this.certificate = certificate;
@@ -110,7 +112,7 @@ namespace Xmtp
             }
         }
 
-        async Task OpenConnection(TcpClient client, CancellationToken ct)
+        public async Task OpenConnection(TcpClient client, CancellationToken ct)
         {
             Stream stream = client.GetStream();
             try
@@ -141,8 +143,9 @@ namespace Xmtp
                     stream = sslStream;
                 }
 
+                IPAddress ipAddress = ((IPEndPoint)client.Client.RemoteEndPoint!).Address;
                 byte[]? token = await connectionInitializer.InitiateConnection(stream, ct);
-                if (token != null && authenticator.Authenticate(token, out T remoteID))
+                if (token != null && authenticator.Authenticate(ipAddress, token, out T remoteID))
                 {
                     byte[] message = connectionInitializer.CreateInitializationMessage(remoteID);
                     await stream.WriteAsync(message, 0, message.Length, ct);
@@ -323,7 +326,7 @@ namespace Xmtp
                     }
                     else
                     {
-                        parameters[i] = JsonSerializer.Deserialize(Encoding.UTF8.GetString(message.Objects[i]), endpoint.ParameterTypes[i])!;
+                        parameters[i] = serializer.Deserialize(message.Objects[i], endpoint.ParameterTypes[i]);
                     }
                 }
                 if (endpoint.IsRequest)
@@ -394,30 +397,47 @@ namespace Xmtp
             }
         }
 
-        public void SendMessage(T remoteID, string endpoint, params object[] objects)
+        public bool SendMessage(T remoteID, string endpoint, params object[] objects)
         {
-            XmtpMessage message = new XmtpMessage(endpoint, objects);
-            byte[] bytes = message.Serialize();
-            Clients[remoteID].SenderQueue.Enqueue(bytes);
+            if (Clients.TryGetValue(remoteID, out ConnectedClient<T>? client))
+            {
+                XmtpMessage message = new XmtpMessage(endpoint, objects, serializer);
+                byte[] bytes = message.Serialize();
+                client.SenderQueue.Enqueue(bytes);
+                return true;
+            }
+            return false;
         }
 
         public void SendMulticast(IEnumerable<T> remoteIDs, string endpoint, params object[] objects)
         {
-            XmtpMessage message = new XmtpMessage(endpoint, objects);
+            XmtpMessage message = new XmtpMessage(endpoint, objects, serializer);
             byte[] bytes = message.Serialize();
             foreach (T remoteID in remoteIDs)
             {
-                Clients[remoteID].SenderQueue.Enqueue(bytes);
+                if (Clients.TryGetValue(remoteID, out ConnectedClient<T>? client))
+                {
+                    client.SenderQueue.Enqueue(bytes);
+                }
             }
         }
 
         public void SendBroadcast(string endpoint, params object[] objects)
         {
-            XmtpMessage message = new XmtpMessage(endpoint, objects);
+            XmtpMessage message = new XmtpMessage(endpoint, objects, serializer);
             byte[] bytes = message.Serialize();
-            foreach (var client in Clients)
+
+            connectionLock.EnterReadLock();
+            try
             {
-                client.Value.SenderQueue.Enqueue(bytes);
+                foreach (var client in Clients)
+                {
+                    client.Value.SenderQueue.Enqueue(bytes);
+                }
+            }
+            finally
+            {
+                connectionLock.ExitReadLock();
             }
         }
 
@@ -426,7 +446,7 @@ namespace Xmtp
             ConnectedClient<T> client = Clients[remoteID];
 
             Guid requestID = Guid.NewGuid();
-            XmtpMessage message = new XmtpMessage(endpoint, requestID, objects);
+            XmtpMessage message = new XmtpMessage(endpoint, requestID, objects, serializer);
             byte[] bytes = message.Serialize();
 
             return await HandleRequest<TResponse>(client, requestID, bytes);
@@ -436,7 +456,7 @@ namespace Xmtp
             (IEnumerable<T> remoteIDs, string endpoint, params object[] objects)
         {
             Guid requestID = Guid.NewGuid();
-            XmtpMessage message = new XmtpMessage(endpoint, requestID, objects);
+            XmtpMessage message = new XmtpMessage(endpoint, requestID, objects, serializer);
             byte[] bytes = message.Serialize();
 
             KeyValuePair<T, XmtpMessageResponse<TResponse>>[] responses = 
@@ -460,7 +480,7 @@ namespace Xmtp
             (string endpoint, params object[] objects)
         {
             Guid requestID = Guid.NewGuid();
-            XmtpMessage message = new XmtpMessage(endpoint, requestID, objects);
+            XmtpMessage message = new XmtpMessage(endpoint, requestID, objects, serializer);
             byte[] bytes = message.Serialize();
 
             KeyValuePair<T, XmtpMessageResponse<TResponse>>[] responses =
@@ -542,7 +562,7 @@ namespace Xmtp
             TResponse? response = default;
             try
             {
-                response = JsonSerializer.Deserialize<TResponse>(responseBytes);
+                response = (TResponse)serializer.Deserialize(responseBytes, typeof(TResponse));
             }
             catch
             {
@@ -559,14 +579,14 @@ namespace Xmtp
 
         void SendResponse(T remoteID, Guid requestID, object response)
         {
-            XmtpMessage message = new XmtpMessage("response", requestID, [response]);
+            XmtpMessage message = new XmtpMessage("response", requestID, [response], serializer);
             byte[] bytes = message.Serialize();
             Clients[remoteID].SenderQueue.Enqueue(bytes);
         }
 
         void SendResponseError(T remoteID, Guid requestID)
         {
-            XmtpMessage message = new XmtpMessage("response", requestID, []);
+            XmtpMessage message = new XmtpMessage("response", requestID, [], serializer);
             byte[] bytes = message.Serialize();
             Clients[remoteID].SenderQueue.Enqueue(bytes);
         }

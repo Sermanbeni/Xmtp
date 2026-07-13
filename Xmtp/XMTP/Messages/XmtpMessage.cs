@@ -10,9 +10,9 @@ namespace Xmtp
         byte[] endpoint;
         byte[][] objects;
 
-        public XmtpMessage(string endpoint, object[] objects)
+        public XmtpMessage(string endpoint, object[] objects, IObjectSerializer serializer)
         {
-            requestID = null;
+            requestID = null!;
             this.endpoint = Encoding.UTF8.GetBytes(endpoint);
             this.objects = new byte[objects.Length][];
             for (int i = 0; i < objects.Length; i++)
@@ -28,7 +28,7 @@ namespace Xmtp
             }
         }
 
-        public XmtpMessage(string endpoint, Guid requestID, object[] objects)
+        public XmtpMessage(string endpoint, Guid requestID, object[] objects, IObjectSerializer serializer)
         {
             this.requestID = requestID.ToByteArray();
             this.endpoint = Encoding.UTF8.GetBytes(endpoint);
@@ -41,7 +41,7 @@ namespace Xmtp
                 }
                 else
                 {
-                    this.objects[i] = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(objects[i]));
+                    this.objects[i] = serializer.Serialize(objects[i]);
                 }
             }
         }
