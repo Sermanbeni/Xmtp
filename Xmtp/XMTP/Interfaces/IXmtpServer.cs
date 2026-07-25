@@ -10,5 +10,7 @@ namespace Xmtp
     public interface IXmtpServer
     {
         Task OpenConnection(TcpClient tcpClient, CancellationToken ct);
+
+        IEnumerable<Task> StopServer();
     }
 }

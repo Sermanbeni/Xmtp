@@ -61,6 +61,9 @@ namespace Xmtp
                     EndpointAttribute? endpointAttribute = method.GetCustomAttribute<EndpointAttribute>();
                     if (endpointAttribute == null) continue;
 
+                    List<Attribute> attributes = method.GetCustomAttributes().ToList();
+                    attributes.Remove(endpointAttribute);
+
                     string route = controller.Route + endpointAttribute.Endpoint;
 
                     ParameterInfo[] parameters = method.GetParameters();
@@ -75,7 +78,8 @@ namespace Xmtp
                     }
                     if (!ok) continue;
 
-                    endpoints.Add(new EndpointInfo(method, route, i));
+                    List<Attribute> endpointAttributes = controller.Attributes.Concat(attributes).ToList();
+                    endpoints.Add(new EndpointInfo(method, route, i, endpointAttributes));
                 }
             }
             return endpoints;

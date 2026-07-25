@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
@@ -12,7 +13,8 @@ namespace Xmtp
     public class XmtpListener : IDisposable
     {
         private readonly TcpListener listener;
-        private readonly Dictionary<string, IXmtpServer> servers;
+        private readonly CancellationTokenSource cancellationTokenSource;
+        private readonly ConcurrentDictionary<string, IXmtpServer> servers;
         private readonly AsyncQueue<ReceivedClient> receivedClients;
 
         private record struct ReceivedClient(IXmtpServer server, TcpClient client);
@@ -20,13 +22,19 @@ namespace Xmtp
         public XmtpListener(int port)
         {
             listener = TcpListener.Create(port);
-            servers = new Dictionary<string, IXmtpServer>();
+            cancellationTokenSource = new CancellationTokenSource();
+            servers = new ConcurrentDictionary<string, IXmtpServer>();
             receivedClients = new AsyncQueue<ReceivedClient>();
         }
 
         public void AddServer(string name, IXmtpServer server)
         {
-            servers.Add(name, server);
+            servers.TryAdd(name, server);
+        }
+
+        public void RemoveServer(string name)
+        {
+            servers.TryRemove(name, out _);
         }
 
         public void Dispose()
@@ -34,18 +42,36 @@ namespace Xmtp
             listener.Dispose();
         }
 
-        public async Task StartListener(CancellationToken ct)
+        public async Task RunAsync()
+        {
+            try
+            {
+                await StartListener(cancellationTokenSource.Token);
+            }
+            catch (OperationCanceledException) { }
+
+            IEnumerable<Task> handlers = servers.Values.SelectMany(s => s.StopServer()).ToArray();
+            await Task.WhenAny
+                (
+                    Task.WhenAll(handlers),
+                    Task.Delay(30 * 1000)
+                );
+        }
+
+        private async Task StartListener(CancellationToken ct)
         {
             listener.Start();
             _ = Task.Run(() => AcceptClients(ct));
-            while (true)
+            while (!ct.IsCancellationRequested)
             {
                 TcpClient client = await listener.AcceptTcpClientAsync(ct);
                 NetworkStream stream = client.GetStream();
                 string serverName;
+                IXmtpServer server;
                 try
                 {
                     serverName = await StreamUtilities.ReadTextAsync(stream, 32);
+                    server = servers[serverName];
                 }
                 catch (Exception ex)
                 {
@@ -53,7 +79,6 @@ namespace Xmtp
                     client.Dispose();
                     continue;
                 }
-                IXmtpServer server = servers[serverName];
                 ReceivedClient receivedClient = new ReceivedClient(server, client);
                 receivedClients.Enqueue(receivedClient);
             }
@@ -70,6 +95,7 @@ namespace Xmtp
 
         public void StopListener()
         {
+            cancellationTokenSource.Cancel();
             listener.Stop();
         }
     }

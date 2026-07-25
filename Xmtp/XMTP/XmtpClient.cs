@@ -12,14 +12,16 @@ namespace Xmtp
     {
         private T remoteID;
         private ClientControllerBase<T>[] controllers;
+        private UdpClient udpClient;
         private TcpClient client;
         private Stream stream;
         private CancellationTokenSource ReaderCancellationTokenSource;
         private CancellationTokenSource WriterCancellationTokenSource;
         private readonly AsyncQueue<byte[]> SenderQueue;
-        private readonly AsyncQueue<byte[]> ReceiverQueue;
+        private readonly AsyncQueue<ReceivedMessage> ReceiverQueue;
         private readonly ConcurrentArrayMap<Guid, TaskCompletionSource<byte[]>> PendingRequests;
         private readonly ReadOnlyDictionary<string, CompiledEndpoint> endpoints;
+        private bool connected = false;
 
         readonly ILogger logger;
         readonly IControllerFactory controllerFactory;
@@ -28,17 +30,23 @@ namespace Xmtp
 
         readonly ReadOnlyDictionary<Type, object> registeredServices;
 
+        readonly bool noDelay;
+        readonly bool useUdp;
         readonly bool useTls;
         readonly RemoteCertificateValidationCallback certificateValidationCallback;
         readonly X509Certificate2 certificate;
 
         private Action Connected = delegate { };
-        private Action Disconnected = delegate { };
+        private Action<bool> Disconnected = delegate { };
 
         public XmtpClient(string clientType,
             ILogger logger, IClientAuthenticator<T> clientAuthenticator, IObjectSerializer serializer,
             ServiceLibrary services,
-            bool useTls = false, RemoteCertificateValidationCallback certificateValidationCallback = null, X509Certificate2 certificate = null)
+            bool noDelay = false,
+            bool useUdp = false,
+            bool useTls = false,
+            RemoteCertificateValidationCallback certificateValidationCallback = null,
+            X509Certificate2 certificate = null)
         {
             List<ControllerInfo> controllerInfos = 
                 ControllerRegistry.RegisterControllers<ClientControllerAttribute>(clientType, typeof(ClientControllerBase<>), typeof(T));
@@ -55,6 +63,7 @@ namespace Xmtp
             this.controllerFactory = new ControllerFactory<T>(controllerTypes, registeredServices);
             controllers = controllerFactory.InstantiateControllers().Select(s => (ClientControllerBase<T>)s).ToArray();
 
+            this.useUdp = useUdp;
             this.useTls = useTls;
             this.certificateValidationCallback = certificateValidationCallback;
             this.certificate = certificate;
@@ -65,10 +74,8 @@ namespace Xmtp
             }
 
             SenderQueue = new AsyncQueue<byte[]>();
-            ReceiverQueue = new AsyncQueue<byte[]>();
+            ReceiverQueue = new AsyncQueue<ReceivedMessage>();
             PendingRequests = new ConcurrentArrayMap<Guid, TaskCompletionSource<byte[]>>();
-
-
         }
 
         ~XmtpClient()
@@ -89,7 +96,10 @@ namespace Xmtp
 
             try
             {
-                client = new TcpClient();
+                client = new TcpClient
+                {
+                    NoDelay = noDelay
+                };
                 await client.ConnectAsync(address, port, rct);
             }
             catch (Exception ex)
@@ -146,12 +156,91 @@ namespace Xmtp
                 throw;
             }
 
-
+            connected = true;
             _ = Task.Run(() => RunMessageListener(rct));
             _ = Task.Run(() => RunMessageSender(wct));
             _ = Task.Run(() => RunMessageInvoker(rct));
 
+            if (useUdp)
+            {
+                await OpenUdpConnection(address, port, rct);
+            }
+
             Connected.Invoke();
+        }
+
+        async Task OpenUdpConnection(string address, int port, CancellationToken rct)
+        {
+            XmtpMessageResponse<byte[]> udpTokenMessage = await SendRequest<byte[]>("udp");
+            if (udpTokenMessage.ResultCode == XmtpResultCode.Success)
+            {
+                byte[] udpToken = udpTokenMessage.Value!;
+                udpClient = new UdpClient(address, port);
+
+                bool responded = false;
+                UdpReceiveResult result = default;
+                int i = 0;
+
+                while (i < 10 && !responded)
+                {
+                    udpClient.Send(udpToken);
+                    CancellationTokenSource cts = new CancellationTokenSource();
+                    Task receiveResult = Task.Run(async () =>
+                    {
+                        result = await udpClient.ReceiveAsync(cts.Token);
+                    });
+                    Task delay = Task.Delay(5 * 1000);
+                    Task finished = await Task.WhenAny(receiveResult, delay);
+                    cts.Cancel();
+                    if (finished == receiveResult)
+                    {
+                        responded = true;
+                    }
+                    i++;
+                }
+
+                if (!responded)
+                {
+                    logger.Log("Failed to enable UDP");
+                    udpClient.Close();
+                    udpClient.Dispose();
+                    udpClient = null!;
+                    return;
+                }
+                string status = Encoding.UTF8.GetString(result.Buffer);
+                if (status == "NO")
+                {
+                    logger.Log("Server rejected UDP connection attempt");
+                    udpClient.Close();
+                    udpClient.Dispose();
+                    udpClient = null!;
+                    return;
+                }
+                if (status == "OK")
+                {
+                    logger.Log("UDP connection enabled");
+                    _ = Task.Run(() => RunUdpListener(rct));
+                }
+            }
+        }
+
+        async Task RunUdpListener(CancellationToken rct)
+        {
+            try
+            {
+                while (!rct.IsCancellationRequested)
+                {
+                    UdpReceiveResult result = await udpClient.ReceiveAsync(rct);
+                    byte[] datagram = result.Buffer;
+                    ReceivedMessage message = new ReceivedMessage(datagram, false);
+                    ReceiverQueue.Enqueue(message);
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                logger.Log(ex);
+            }
         }
 
         async Task RunMessageSender(CancellationToken ct)
@@ -201,7 +290,9 @@ namespace Xmtp
                         receivedSize += arrivedBytes;
                     }
                     if (arrivedBytes == 0) break;
-                    ReceiverQueue.Enqueue(messageBuffer);
+
+                    ReceivedMessage receivedMessage = new ReceivedMessage(messageBuffer);
+                    ReceiverQueue.Enqueue(receivedMessage);
                 }
             }
             catch (OperationCanceledException) { }
@@ -223,7 +314,7 @@ namespace Xmtp
                 client.Client.Shutdown(SocketShutdown.Send);
             }
             ReaderCancellationTokenSource.Cancel();
-            Disconnected.Invoke();
+            Disconnected.Invoke(!connected);
         }
 
         async Task RunMessageInvoker(CancellationToken ct)
@@ -232,7 +323,8 @@ namespace Xmtp
             {
                 while (!ct.IsCancellationRequested)
                 {
-                    byte[] bytes = await ReceiverQueue.DequeueAsync(ct);
+                    ReceivedMessage receivedMessage = await ReceiverQueue.DequeueAsync(ct);
+                    byte[] bytes = receivedMessage.Message;
                     XmtpDeliveredMessage message = new XmtpDeliveredMessage(bytes);
                     await InvokeEndpoint(message);
                 }
@@ -248,16 +340,41 @@ namespace Xmtp
         {
             try
             {
-                if (message.Endpoint == "response")
+                if (message.Endpoint == "close" && message.Tcp)
+                {
+                    connected = false;
+                    SendMessage("closed");
+                    return;
+                }
+                if (message.Endpoint == "closed" && message.Tcp)
+                {
+                    CloseCt?.Cancel();
+                    CloseConnection();
+                    return;
+                }
+                if (message.Endpoint == "response" && message.Tcp)
                 {
                     HandleResponse(message);
                     return;
                 }
-                if (!endpoints.TryGetValue(message.Endpoint, out CompiledEndpoint endpoint))
+                if (!endpoints.TryGetValue(message.Endpoint, out CompiledEndpoint? endpoint))
                 {
                     logger.Log($"Endpoint {message.Endpoint} not found");
                     InvocationFailed(message);
                     return;
+                }
+                if (!message.Tcp)
+                {
+                    if (endpoint.IsRequest)
+                    {
+                        logger.Log($"Request endpoints are not available over UDP: {message.Endpoint}");
+                        return;
+                    }
+                    if (!endpoint.UdpAllowed)
+                    {
+                        logger.Log($"Endpoint {message.Endpoint} not allowed over UDP");
+                        return;
+                    }
                 }
                 if (message.Objects.Length != endpoint.ParameterTypes.Length)
                 {
@@ -333,6 +450,21 @@ namespace Xmtp
             XmtpMessage message = new XmtpMessage(endpoint, objects, serializer);
             byte[] bytes = message.Serialize();
             SenderQueue.Enqueue(bytes);
+        }
+
+        public void SendUdpMessage(string endpoint, params object[] objects)
+        {
+            XmtpMessage message = new XmtpMessage(endpoint, objects, serializer);
+            byte[] bytes = message.Serialize();
+
+            if (bytes.Length <= 65535)
+            {
+                udpClient.Send(bytes);
+            }
+            else
+            {
+                SenderQueue.Enqueue(bytes);
+            }
         }
 
         public async Task<XmtpMessageResponse<TResponse>> SendRequest<TResponse>(string endpoint, params object[] objects)
@@ -424,7 +556,28 @@ namespace Xmtp
             logger.Log("Invalid response message");
         }
 
-        public void CloseConnection()
+        CancellationTokenSource CloseCt;
+        public void Disconnect()
+        {
+            connected = false;
+            SendMessage("close");
+            CloseCt = new CancellationTokenSource();
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(5 * 1000, CloseCt.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    return;
+                }
+                CloseConnection();
+            });
+        }
+
+        void CloseConnection()
         {
             WriterCancellationTokenSource.Cancel();
             client.Client.Shutdown(SocketShutdown.Send);
@@ -440,7 +593,7 @@ namespace Xmtp
             Connected = delegate { };
         }
 
-        public void AddOnDisconnectEvent(Action action)
+        public void AddOnDisconnectEvent(Action<bool> action)
         {
             Disconnected += action;
         }

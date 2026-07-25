@@ -23,26 +23,27 @@ namespace Xmtp
             var method = endpoint.Method;
             var returnType = method.ReturnType;
             var parameterTypes = method.GetParameters().Select(p => p.ParameterType);
+            bool udpAllowed = endpoint.Attributes.Any(a => a is AllowUdpAttribute);
 
             if (returnType == typeof(void))
             {
                 var compiled = CompileVoidMethod<T>(method);
-                return new CompiledEndpoint(false, false, compiled, endpoint.ControllerIndex, parameterTypes);
+                return new CompiledEndpoint(false, false, udpAllowed, compiled, endpoint.ControllerIndex, parameterTypes);
             }
             else if (returnType == typeof(Task))
             {
                 var compiled = CompileTaskMethod<T>(method);
-                return new CompiledEndpoint(false, true, compiled, endpoint.ControllerIndex, parameterTypes);
+                return new CompiledEndpoint(false, true, udpAllowed, compiled, endpoint.ControllerIndex, parameterTypes);
             }
             else if (returnType == typeof(Task<object>))
             {
                 var compiled = CompileTaskObjectMethod<T>(method);
-                return new CompiledEndpoint(true, true, compiled, endpoint.ControllerIndex, parameterTypes);
+                return new CompiledEndpoint(true, true, udpAllowed, compiled, endpoint.ControllerIndex, parameterTypes);
             }
             else
             {
                 var compiled = CompileObjectMethod<T>(method);
-                return new CompiledEndpoint(true, false, compiled, endpoint.ControllerIndex, parameterTypes);
+                return new CompiledEndpoint(true, false, udpAllowed, compiled, endpoint.ControllerIndex, parameterTypes);
             }
         }
 

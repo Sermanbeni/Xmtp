@@ -7,16 +7,19 @@ namespace Xmtp
         public readonly string Endpoint;
         public readonly Guid? RequestID;
         public readonly byte[][] Objects;
+        public readonly bool Tcp;
 
-        public XmtpDeliveredMessage(string endpoint, Guid? requestID, byte[][] objects)
+        public XmtpDeliveredMessage(string endpoint, Guid? requestID, byte[][] objects, bool tcp = true)
         {
             Endpoint = endpoint;
             RequestID = requestID;
             Objects = objects;
+            Tcp = tcp;
         }
 
-        public XmtpDeliveredMessage(byte[] bytes)
+        public XmtpDeliveredMessage(byte[] bytes, bool tcp = true)
         {
+            Tcp = tcp;
             int position = 0;
             int size;
             byte[] buffer;

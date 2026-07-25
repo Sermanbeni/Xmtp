@@ -42,5 +42,13 @@ namespace Xmtp
             byte[] bytes = await ReadBytesAsync(stream, length);
             return Encoding.UTF8.GetString(bytes);
         }
+
+        public static async Task WriteTextAsync(Stream stream, string message)
+        {
+            byte[] size = BitConverter.GetBytes(message.Length);
+            byte[] bytes = Encoding.UTF8.GetBytes(message);
+            byte[] payload = new byte[size.Length + bytes.Length];
+            await stream.WriteAsync(payload, 0, payload.Length);
+        }
     }
 }
